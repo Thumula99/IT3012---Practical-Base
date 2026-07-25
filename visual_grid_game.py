@@ -26,6 +26,19 @@ class VisualGridHuntGame:
             if pos_tuple != (0, 0) and pos_tuple not in self.walls:
                 self.food_positions.add(pos_tuple)
 
+        # Generate toxic traps in safe cells, avoiding the start, walls, and food
+        self.toxic_traps = set()
+        max_traps = max(1, min(4, num_food // 2))
+        attempts = 0
+        while len(self.toxic_traps) < max_traps and attempts < 1000:
+            tx = random.randint(0, self.width - 1)
+            ty = random.randint(0, self.height - 1)
+            trap_pos = (tx, ty)
+            if (trap_pos != (0, 0) and trap_pos not in self.walls and trap_pos not in self.food_positions
+                    and trap_pos not in self.toxic_traps):
+                self.toxic_traps.add(trap_pos)
+            attempts += 1
+
         # Generate adversarial opponents
         self.opponents = []
         while len(self.opponents) < num_opponents:
@@ -87,6 +100,11 @@ class VisualGridHuntGame:
             if op == self.agent_pos:
                 self.score -= 50
                 self.collision = True
+
+        # Check for toxic trap activation
+        if tuple(self.agent_pos) in self.toxic_traps:
+            self.score -= 10  # Penalty for stepping on a trap
+            self.collision = True  # End the game on trap collision
 
     def is_done(self) -> bool:
         return len(self.food_positions) == 0 or self.steps >= 60 or self.collision
