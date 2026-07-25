@@ -83,6 +83,9 @@ class VisualGridHuntGame:
             self.agent_pos = new_pos
 
         tuple_pos = tuple(self.agent_pos)
+        if tuple_pos in self.toxic_traps:
+            self.score -= 15
+        
         if tuple_pos in self.food_positions:
             self.food_positions.remove(tuple_pos)
             self.score += 20
@@ -101,11 +104,6 @@ class VisualGridHuntGame:
             if op == self.agent_pos:
                 self.score -= 50
                 self.collision = True
-
-        # Check for toxic trap activation
-        if tuple(self.agent_pos) in self.toxic_traps:
-            self.score -= 10  # Penalty for stepping on a trap
-            self.collision = True  # End the game on trap collision
 
     def is_done(self) -> bool:
         return len(self.food_positions) == 0 or self.steps >= 60 or self.collision
@@ -164,6 +162,20 @@ class GridGameGUI:
             y1 = (self.env.height - 1 - fy) * self.cell_size + offset
             self.canvas.create_oval(x1, y1, x1 + self.cell_size * 0.5, y1 + self.cell_size * 0.5, fill="#f59e0b",
                                     outline="#d97706")
+
+        for tx, ty in self.env.toxic_traps:
+            x1 = tx * self.cell_size
+            y1 = (self.env.height - 1 - ty) * self.cell_size
+            cx = x1 + self.cell_size / 2
+            cy = y1 + self.cell_size / 2
+            offset = self.cell_size * 0.25
+            points = [
+                (cx, y1 + offset),
+                (x1 + self.cell_size - offset, cy),
+                (cx, y1 + self.cell_size - offset),
+                (x1 + offset, cy),
+            ]
+            self.canvas.create_polygon(points, fill="#8b5cf6", outline="#6d28d9", width=2)
 
         for ox, oy in self.env.opponents:
             offset = self.cell_size * 0.2
