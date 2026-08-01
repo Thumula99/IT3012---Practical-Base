@@ -165,15 +165,52 @@ class VisualGridHuntGame:
         return len(self.food_positions) == 0 or self.steps >= 60 or self.collision
 
 
+class SimpleReflexAgent:
+    """
+    A simple reflex agent that uses strictly IF-THEN logic (Condition-Action rules).
+    No internal state or history is stored. Decisions are based solely on current percepts.
+    
+    This demonstrates the fundamental limitation of reactive agents: they can get
+    trapped in infinite loops when facing U-shaped walls or corners.
+    """
+    
+    def sense_and_act(self, percept: dict) -> str:
+        """
+        Pure condition-action rules. No state, no memory, only immediate reactions.
+        
+        Rules are evaluated in order of priority:
+        1. IF food_here THEN suck (stay in place and consume)
+        2. IF toxin_here THEN move away (turn and step forward to escape)
+        3. IF wall_ahead THEN turn_left (avoid obstacles)
+        4. ELSE move_forward (explore)
+        """
+        
+        # Rule 1: Food at current location
+        if percept['food_here']:
+            return 'Suck'
+        
+        # Rule 2: Standing on toxic trap - try to escape
+        if percept['toxin_here']:
+            return 'TurnLeft'
+        
+        # Rule 3: Wall directly ahead - turn left to navigate
+        if percept['wall_ahead']:
+            return 'TurnLeft'
+        
+        # Rule 4: Default action - move forward
+        return 'MoveForward'
+
+
 class GridGameGUI:
     """Tkinter wrapper that dynamically scales cell sizes to keep larger grids on screen."""
 
-    def __init__(self, root, width=10, height=10, num_food=12, num_opponents=2, walls=None):
+    def __init__(self, root, width=10, height=10, num_food=12, num_opponents=2, walls=None, agent=None):
         self.root = root
         self.root.title("IT3012 - Scalable Multi-Agent Grid Hunt")
 
         self.env = VisualGridHuntGame(width=width, height=height, num_food=num_food, num_opponents=num_opponents,
                                       custom_walls=walls)
+        self.agent = agent  # Can be None for random agent, or a SimpleReflexAgent instance
 
         # Dynamically calculate cell size so the total canvas fits nicely within a 600x600 window ceiling
         max_canvas_dim = 600
@@ -188,8 +225,9 @@ class GridGameGUI:
         self.label = tk.Label(root, text="Score: 0 | Steps: 0", font=("Arial", 14))
         self.label.pack(pady=10)
 
-        self.btn = tk.Button(root, text="Start Simulation", command=self.run_loop, font=("Arial", 12), bg="#000066",
-                             fg="white")
+        agent_type = "SimpleReflexAgent" if self.agent else "Random Agent"
+        self.btn = tk.Button(root, text=f"Start Simulation ({agent_type})", command=self.run_loop, font=("Arial", 12), 
+                             bg="#000066", fg="white")
         self.btn.pack(pady=5)
 
         self.draw_grid()
@@ -252,7 +290,26 @@ class GridGameGUI:
 
         def step():
             if not self.env.is_done():
-                action = random.choice(['Up', 'Down', 'Left', 'Right'])
+                # Get agent's action based on agent type
+                if self.agent:
+                    percept = self.env.get_percept()
+                    agent_action = self.agent.sense_and_act(percept)
+                    
+                    # Map agent actions to environment actions
+                    if agent_action == 'Suck':
+                        action = 'Stay'  # Stay in place (food is consumed in execute_action)
+                    elif agent_action == 'TurnLeft':
+                        # Turn left based on current facing
+                        facing_map = {'Up': 'Left', 'Left': 'Down', 'Down': 'Right', 'Right': 'Up'}
+                        action = facing_map.get(self.env.facing, 'Up')
+                    elif agent_action == 'MoveForward':
+                        action = self.env.facing
+                    else:
+                        action = random.choice(['Up', 'Down', 'Left', 'Right'])
+                else:
+                    # Random agent
+                    action = random.choice(['Up', 'Down', 'Left', 'Right'])
+                
                 self.env.execute_action(action)
 
                 self.draw_grid()
@@ -268,6 +325,19 @@ class GridGameGUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    # Try a larger grid size like 12x12 with 15 food and 3 opponents!
-    app = GridGameGUI(root, width=12, height=12, num_food=15, num_opponents=0)
+    
+    # Create a U-shaped wall configuration to trap the reflex agent
+    u_shaped_walls = {
+        (2, 1), (2, 2), (2, 3), (2, 4), (2, 5),  # Left vertical
+        (3, 1), (4, 1), (5, 1), (6, 1),          # Bottom horizontal
+        (7, 1), (7, 2), (7, 3), (7, 4), (7, 5),  # Right vertical
+    }
+    
+    # Uncomment to run with SimpleReflexAgent (will demonstrate infinite loop behavior)
+    agent = SimpleReflexAgent()
+    app = GridGameGUI(root, width=10, height=8, num_food=3, num_opponents=0, walls=u_shaped_walls, agent=agent)
+    
+    # Uncomment to run with Random Agent for comparison
+    # app = GridGameGUI(root, width=10, height=8, num_food=3, num_opponents=0, walls=u_shaped_walls, agent=None)
+    
     root.mainloop()
