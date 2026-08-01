@@ -102,6 +102,7 @@ class VisualGridHuntGame:
         toxin_here = current_pos in self.toxic_traps
         hit_wall = current_pos in self.walls
 
+        # Include agent coordinates in the percept so model-based agents can maintain a map
         return {
             'facing': self.facing,
             'wall_ahead': wall_ahead,
@@ -113,7 +114,9 @@ class VisualGridHuntGame:
             'hit_wall': hit_wall,
             'collision': self.collision,
             'score': self.score,
-            'remaining_food': len(self.food_positions)
+            'remaining_food': len(self.food_positions),
+            '_agent_x': ax,
+            '_agent_y': ay,
         }
 
     def execute_action(self, action: str):
@@ -229,6 +232,53 @@ class ModelBasedAgent:
         facing = percept['facing']
         return (0, 0, facing)  # Simplified: (x_offset, y_offset, facing)
     
+    def _adjacent_pos(self, percept: dict, direction: str) -> tuple:
+        """Return the coordinates of an adjacent cell relative to the agent.
+
+        direction is one of: 'ahead', 'left', 'right', 'back'
+        """
+        ax = percept.get('_agent_x', 0)
+        ay = percept.get('_agent_y', 0)
+        facing = percept['facing']
+        dx = dy = 0
+        if direction == 'ahead':
+            if facing == 'Up':
+                dy = 1
+            elif facing == 'Down':
+                dy = -1
+            elif facing == 'Left':
+                dx = -1
+            elif facing == 'Right':
+                dx = 1
+        elif direction == 'left':
+            if facing == 'Up':
+                dx = -1
+            elif facing == 'Down':
+                dx = 1
+            elif facing == 'Left':
+                dy = -1
+            elif facing == 'Right':
+                dy = 1
+        elif direction == 'right':
+            if facing == 'Up':
+                dx = 1
+            elif facing == 'Down':
+                dx = -1
+            elif facing == 'Left':
+                dy = 1
+            elif facing == 'Right':
+                dy = -1
+        elif direction == 'back':
+            if facing == 'Up':
+                dy = -1
+            elif facing == 'Down':
+                dy = 1
+            elif facing == 'Left':
+                dx = 1
+            elif facing == 'Right':
+                dx = -1
+        return (ax + dx, ay + dy)
+    
     def _detect_loop(self) -> bool:
         """
         Detect if agent is stuck in a loop by checking if recent actions repeat.
@@ -295,6 +345,13 @@ class ModelBasedAgent:
             self.last_action = 'TurnRight'
             return 'TurnRight'
         
+        # New rule: If there's a wall ahead and the cell to the left has already been visited, prefer turning right
+        if percept['wall_ahead']:
+            left_pos = self._adjacent_pos(percept, 'left')
+            if left_pos in self.visited_cells:
+                self.last_action = 'TurnRight'
+                return 'TurnRight'
+
         # Rule 3: If wall ahead AND we detected a loop, turn right (alternate strategy)
         if percept['wall_ahead'] and loop_detected:
             self.last_action = 'TurnRight'
