@@ -508,10 +508,5 @@ if __name__ == "__main__":
     app = GridGameGUI(root, width=10, height=8, num_food=3, num_opponents=0, walls=u_shaped_walls, agent=agent)
     
     # Uncomment to compare with SimpleReflexAgent (will get stuck in loop)
-    # agent = SimpleReflexAgent()
-    # app = GridGameGUI(root, width=10, height=8, num_food=3, num_opponents=0, walls=u_shaped_walls, agent=agent)
-    
-    # Uncomment to run with Random Agent for comparison
-    # app = GridGameGUI(root, width=10, height=8, num_food=3, num_opponents=0, walls=u_shaped_walls, agent=None)
-    
+   
     root.mainloop()
